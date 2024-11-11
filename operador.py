@@ -6,7 +6,7 @@ def receive_messages(client_socket):
         try:
             message = client_socket.recv(1024).decode()
             if message:
-                print(f"\n{message}")  # Exibe a resposta do suporte
+                print(f"\n{message}")
             else:
                 break
         except:
@@ -18,16 +18,29 @@ def send_messages(client_socket):
         if question.lower() == "atendimento concluido":
             client_socket.send("atendimento concluido".encode())
             break
-        client_socket.send(f"Financeiro:{question}".encode())  # Exemplo de enviar para área Financeiro
+        client_socket.send(question.encode())
 
 def start_client():
+    print("Escolha a área de suporte que deseja acessar:")
+    print("1. Financeiro")
+    print("2. Logística")
+    print("3. Atendimento")
+    area_choice = input("Digite o número da área: ")
+
+    areas = {"1": ("Financeiro", 5555), "2": ("Logistica", 5556), "3": ("Atendimento", 5557)}
+    area, port = areas.get(area_choice, (None, None))
+
+    if area is None:
+        print("[Erro] Escolha inválida.")
+        return
+
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client_socket.connect(('localhost', 5555))
+    client_socket.connect(('localhost', port))  # Conecte-se ao IP do servidor
     client_socket.send("cliente".encode())  # Informando ao servidor que é um cliente
 
+    print(f"Conectado à área de {area}.")
     receive_thread = threading.Thread(target=receive_messages, args=(client_socket,))
     receive_thread.start()
-
     send_thread = threading.Thread(target=send_messages, args=(client_socket,))
     send_thread.start()
 

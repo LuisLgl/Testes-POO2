@@ -1,87 +1,80 @@
 import socket
 import threading
 
-clients = []
+# Estrutura para armazenar clientes e gerentes por área
+clients = {"Financeiro": [], "Logistica": [], "Atendimento": []}
 managers = {"Financeiro": None, "Logistica": None, "Atendimento": None}
-messages = []  # Lista para armazenar todas as mensagens trocadas
+messages = []  # Histórico de todas as mensagens trocadas
 
-def handle_client(client_socket, address):
-    global clients, managers
+def handle_client(client_socket, address, area):
+    print(f"[Servidor] Cliente conectado na área {area} de {address}")
+    clients[area].append(client_socket)
+
     while True:
         try:
             message = client_socket.recv(1024).decode()
             if message:
-                # Se a mensagem for "atendimento concluído", encerra a conexão
-                if message.lower() == "atendimento concluido":
-                    client_socket.send("Atendimento encerrado. Até logo!".encode())
-                    break
+                # Registro no histórico do servidor
+                messages.append(f"[Cliente {address[0]}:{address[1]} em {area}] Pergunta: {message}")
                 
-                # Registra a mensagem no histórico do servidor
-                messages.append(f"[Cliente {address[0]}:{address[1]}] Pergunta: {message.strip()}")
-                area, question = message.split(":", 1)  # Extrai a área e a pergunta
-                if area in managers and managers[area]:
-                    # Encaminha a pergunta para o gerente da área correspondente
-                    managers[area].send(f"[Cliente {address[0]}:{address[1]}] Pergunta: {question.strip()}".encode())
-                    client_socket.send(f"[Sucesso] Sua dúvida foi enviada para o gerente de {area}.".encode())
+                # Encaminha a mensagem para o gerente da área
+                if managers[area]:
+                    managers[area].send(f"[Cliente {address[0]}:{address[1]}] Pergunta: {message}".encode())
+                    client_socket.send(f"Sua dúvida foi enviada para o gerente de {area}.".encode())
                 else:
                     client_socket.send(f"[Erro] Nenhum gerente disponível para {area} no momento.".encode())
             else:
                 break
         except Exception as e:
-            print(f"[Erro] {e}")
-            clients.remove(client_socket)
+            print(f"[Erro Cliente] {e}")
+            clients[area].remove(client_socket)
             break
     client_socket.close()
 
 def handle_manager(manager_socket, area):
-    global messages
     print(f"[Servidor] Gerente de {area} conectado.")
-    
+    managers[area] = manager_socket
+
     while True:
         try:
             message = manager_socket.recv(1024).decode()
             if message:
-                # Registra a resposta do gerente no histórico do servidor
-                messages.append(f"[{area} Gerente] Resposta: {message.strip()}")
+                # Registro da resposta no histórico
+                messages.append(f"[Gerente de {area}] Resposta: {message}")
                 
-                # Envia a resposta para todos os clientes conectados dessa área
-                for client in clients:
-                    client.send(f"[{area} Gerente] Resposta: {message.strip()}".encode())
+                # Enviar resposta para todos os clientes da área
+                for client in clients[area]:
+                    client.send(f"[Gerente de {area}] Resposta: {message}".encode())
                 
-                # Envia uma confirmação para o gerente de que a resposta foi enviada
-                manager_socket.send("Mensagem enviada para os clientes.".encode())
+                # Confirmação para o gerente
+                manager_socket.send("Resposta enviada aos clientes.".encode())
             else:
                 break
         except Exception as e:
-            print(f"[Erro] {e}")
+            print(f"[Erro Gerente] {e}")
             managers[area] = None
             break
     manager_socket.close()
 
-def start_server():
-    global managers
+def start_area_server(area, port):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind(('localhost', 5555))
-    server.listen(10)
-    print("Servidor rodando na porta 5555...\n")
+    server.bind(('0.0.0.0', port))  # Escuta em toda a rede local
+    server.listen(5)
+    print(f"Servidor de {area} rodando na porta {port}...\n")
 
     while True:
         client_socket, address = server.accept()
-        print(f"Nova conexão de {address[0]}:{address[1]}")
-
         role = client_socket.recv(1024).decode()
-        if role in managers:  # É um gerente para uma área específica
-            managers[role] = client_socket
-            print(f"Gerente de {role} conectado.")
-            client_socket.send(f"[Suporte Conectado] O gerente de {role} está agora disponível.".encode())
-            manager_thread = threading.Thread(target=handle_manager, args=(client_socket, role))
+        
+        if role == "gerente":
+            manager_thread = threading.Thread(target=handle_manager, args=(client_socket, area))
             manager_thread.start()
-        else:  # É um cliente
-            clients.append(client_socket)
-            print("Cliente conectado.")
-            client_socket.send("[Suporte] Conectado. Aguardando sua dúvida.".encode())
-            client_thread = threading.Thread(target=handle_client, args=(client_socket, address))
+        elif role == "cliente":
+            client_thread = threading.Thread(target=handle_client, args=(client_socket, address, area))
             client_thread.start()
 
 if __name__ == "__main__":
-    start_server()
+    # Inicia um servidor para cada área de suporte em portas diferentes
+    threading.Thread(target=start_area_server, args=("Financeiro", 5555)).start()
+    threading.Thread(target=start_area_server, args=("Logistica", 5556)).start()
+    threading.Thread(target=start_area_server, args=("Atendimento", 5557)).start()
