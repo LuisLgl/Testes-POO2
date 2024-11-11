@@ -6,7 +6,10 @@ def receive_messages(manager_socket):
         try:
             message = manager_socket.recv(1024).decode()
             if message:
-                print(f"\n[Cliente] {message}")
+                print(f"\n{message}")
+                if message == "Conexão encerrada.":
+                    print("[Sistema] Conexão finalizada pelo servidor.")
+                    break
             else:
                 break
         except:
@@ -15,10 +18,9 @@ def receive_messages(manager_socket):
 def send_messages(manager_socket):
     while True:
         response = input("Digite sua resposta: ")
-        if response.lower() == "atendimento concluido":
-            manager_socket.send("atendimento concluido".encode())
-            break
         manager_socket.send(response.encode())
+        if response == "concluido1234":
+            break
 
 def start_manager():
     print("Escolha a área de suporte que você gerenciará:")
@@ -35,8 +37,8 @@ def start_manager():
         return
 
     manager_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    manager_socket.connect(('localhost', port))  # Conecte-se ao IP do servidor
-    manager_socket.send("gerente".encode())  # Informando ao servidor que é um gerente
+    manager_socket.connect(('localhost', port))
+    manager_socket.send("gerente".encode())
 
     print(f"\nVocê está gerenciando a área de {area}.\n")
     receive_thread = threading.Thread(target=receive_messages, args=(manager_socket,))

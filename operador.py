@@ -7,6 +7,9 @@ def receive_messages(client_socket):
             message = client_socket.recv(1024).decode()
             if message:
                 print(f"\n{message}")
+                if message == "Conexão encerrada.":
+                    print("[Sistema] Conexão finalizada pelo servidor.")
+                    break
             else:
                 break
         except:
@@ -15,10 +18,9 @@ def receive_messages(client_socket):
 def send_messages(client_socket):
     while True:
         question = input("Digite sua dúvida: ")
-        if question.lower() == "atendimento concluido":
-            client_socket.send("atendimento concluido".encode())
-            break
         client_socket.send(question.encode())
+        if question == "concluido1234":
+            break
 
 def start_client():
     print("Escolha a área de suporte que deseja acessar:")
@@ -35,8 +37,8 @@ def start_client():
         return
 
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client_socket.connect(('localhost', port))  # Conecte-se ao IP do servidor
-    client_socket.send("cliente".encode())  # Informando ao servidor que é um cliente
+    client_socket.connect(('localhost', port))
+    client_socket.send("cliente".encode())
 
     print(f"Conectado à área de {area}.")
     receive_thread = threading.Thread(target=receive_messages, args=(client_socket,))

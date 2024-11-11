@@ -14,8 +14,15 @@ def handle_client(client_socket, address, area):
         try:
             message = client_socket.recv(1024).decode()
             if message:
+                print(f"[Servidor] Mensagem recebida: {message}")
                 # Registro no histórico do servidor
                 messages.append(f"[Cliente {address[0]}:{address[1]} em {area}] Pergunta: {message}")
+                
+                if message == "concluido1234":
+                    print(f"[Servidor] Cliente {address} desconectou da área {area}.")
+                    clients[area].remove(client_socket)
+                    client_socket.send("Conexão encerrada.".encode())
+                    break
                 
                 # Encaminha a mensagem para o gerente da área
                 if managers[area]:
@@ -39,9 +46,15 @@ def handle_manager(manager_socket, area):
         try:
             message = manager_socket.recv(1024).decode()
             if message:
-                # Registro da resposta no histórico
+                print(f"[Servidor] Mensagem do gerente: {message}")
                 messages.append(f"[Gerente de {area}] Resposta: {message}")
                 
+                if message == "concluido1234":
+                    print(f"[Servidor] Gerente de {area} desconectado.")
+                    managers[area] = None
+                    manager_socket.send("Conexão encerrada.".encode())
+                    break
+
                 # Enviar resposta para todos os clientes da área
                 for client in clients[area]:
                     client.send(f"[Gerente de {area}] Resposta: {message}".encode())
@@ -74,7 +87,6 @@ def start_area_server(area, port):
             client_thread.start()
 
 if __name__ == "__main__":
-    # Inicia um servidor para cada área de suporte em portas diferentes
     threading.Thread(target=start_area_server, args=("Financeiro", 5555)).start()
     threading.Thread(target=start_area_server, args=("Logistica", 5556)).start()
     threading.Thread(target=start_area_server, args=("Atendimento", 5557)).start()
